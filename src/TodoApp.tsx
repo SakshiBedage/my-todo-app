@@ -38,7 +38,7 @@ const TodoApp = () => {
 
       <ul>
         {todos.map((todo) => (
-          <li key={todo.id} style={{ marginBottom: "10ppx" }}>
+          <li key={todo.id} style={{ marginBottom: "10px" }}>
             {todo.text}{" "}
             <button
               onClick={() => deleteTodo(todo.id)}
