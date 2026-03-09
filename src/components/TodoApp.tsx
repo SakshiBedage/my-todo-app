@@ -1,21 +1,58 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { getTodos } from "../services/api";
 import type { Todo } from "../types/todo";
+import { AgGridReact } from "ag-grid-react";
+import { AllCommunityModule, ModuleRegistry } from "ag-grid-community";
+import type { ColDef, ICellRendererParams } from "ag-grid-community";
+import AddTodo from "./AddTodo";
+
+ModuleRegistry.registerModules([AllCommunityModule]);
 
 const TodoIndex: React.FC = () => {
   const [todos, setTodos] = useState<Todo[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
+  // const [error, setError] = useState<string | null>(null);
+
+  //Define tabel Columns
+  const columnDefs = useMemo<ColDef<Todo>[]>(
+    () => [
+      { field: "id", headerName: "ID", width: 80, sortable: true },
+      { field: "todo", headerName: "Task Description", flex: 1, filter: true },
+      {
+        field: "completed",
+        headerName: "Status",
+        width: 150,
+        cellRenderer: (params: ICellRendererParams<Todo>) => (
+          <span
+            className={`px-2 py-1 rounded-full text-xs font-bold ${
+              params.value
+                ? "bg-green-100 text-green-700"
+                : "bg-orange-100 text-orange-700"
+            }`}
+          >
+            {params.value ? "Completed" : "Pending"}
+          </span>
+        ),
+      },
+      { field: "userId", headerName: "UserID", width: 100 },
+    ],
+    [],
+  );
+
+  const handleTodoAdded = (newTodo: Todo) => {
+    setTodos((prev) => [newTodo, ...prev]);
+  };
 
   useEffect(() => {
     const fetchTodos = async () => {
       try {
         setLoading(true);
-        const data = await getTodos(10);
+        const data = await getTodos(40);
         setTodos(data);
+
+        console.log("Fetched Todos:", data);
       } catch (err) {
-        setError("Failed to fetch todos.");
-        console.error(err);
+        console.error("Grid Error:", err);
       } finally {
         setLoading(false);
       }
@@ -24,35 +61,50 @@ const TodoIndex: React.FC = () => {
     fetchTodos();
   }, []);
 
-  if (loading) return <p>Loading tasks...</p>;
-  if (error) return <p style={{ color: "red" }}>{error}</p>;
+  if (loading) return <div className="p-10 text-center">Loading Grid...</div>;
 
   return (
-    <div style={{ padding: "20px", maxWidth: "600px", margin: "0 auto" }}>
-      <h1>System Todos</h1>
-      <ul style={{ listStyle: "none", padding: 0 }}>
+    <div className="p-10 max-w-2xl mx-auto min-h-screen">
+      <h1 className="text-4xl font-extrabold text-red-600 mb-6 uppercase tracking-tight">
+        System Todos
+      </h1>
+
+      <div className="mb-8">
+        <AddTodo onTodoAdded={handleTodoAdded} />
+      </div>
+
+      {/* AG Grid Container */}
+      <div
+        className="ag-theme-alpine shadow-lg rounded-xl overflow-hidden"
+        style={{ height: 500, width: "100%" }}
+      >
+        <AgGridReact
+          rowData={todos}
+          columnDefs={columnDefs}
+          pagination={true}
+          paginationPageSize={10}
+          paginationPageSizeSelector={[5, 10, 20]}
+        />
+      </div>
+      {/* <ul className="bg-white shadow-md rounded-lg overflow-hidden">
         {todos.map((todo) => (
           <li
             key={todo.id}
-            style={{
-              padding: "10px",
-              borderBottom: "1px solid #ddd",
-              backgroundColor: todo.completed ? "#f9f9f9" : "#fff",
-            }}
+            className={`p-4 border-b border-gray-200 last:border-0 ${
+              todo.completed
+                ? "bg-gray-50 text-gray-400"
+                : "bg-white text-gray-800"
+            }`}
           >
-            <strong
-              style={{
-                textDecoration: todo.completed ? "line-through" : "none",
-              }}
-            >
+            <strong className={todo.completed ? "line-through" : ""}>
               {todo.todo}
             </strong>
-            <p style={{ fontSize: "12px", color: "#666" }}>
+            <p className="text-xs text-gray-500 mt-1">
               Assigned to User: {todo.userId}
             </p>
           </li>
         ))}
-      </ul>
+      </ul> */}
     </div>
   );
 };
