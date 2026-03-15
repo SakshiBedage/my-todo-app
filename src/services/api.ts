@@ -22,3 +22,21 @@ export const addTodo = async (todo: string, userId: number): Promise<Todo> => {
 
   return response.data;
 };
+
+export const updateTodo = async (
+  id: number,
+  completed: boolean,
+): Promise<Todo> => {
+  const response: AxiosResponse<Todo> = await axios.put(`${BASE_URL}/${id}`, {
+    completed: completed,
+  });
+  return response.data;
+};
+
+export const deleteTodo = async (
+  id: number,
+): Promise<{ id: number; isDeleted: boolean }> => {
+  const response: AxiosResponse<{ id: number; isDeleted: boolean }> =
+    await axios.delete(`${BASE_URL}/${id}`);
+  return response.data;
+};
