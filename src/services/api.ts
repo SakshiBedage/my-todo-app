@@ -6,19 +6,55 @@ import type { ApiResponse, Todo } from "../types/todo";
 const BASE_URL = "https://dummyjson.com/todos";
 const AUTH_BASE_URL = "https://dummyjson.com/auth";
 
-axios.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    const serverMessage =
-      error.response?.data?.message ||
-      "An unexpected error occurred with the Todo service.";
+const isTokenExpired = () => {
+  const loginTime = sessionStorage.getItem("loginTime");
+  if (!loginTime) return true;
 
-    if (error.response?.status === 401) {
-      sessionStorage.clear();
-      window.location.reload();
+  const elapsed = Date.now() - parseInt(loginTime);
+  return elapsed > 2 * 60 * 1000;
+};
+
+axios.interceptors.request.use(
+  async (config) => {
+    let token = sessionStorage.getItem("accessToken");
+
+    if (!token) {
+      return Promise.reject(
+        new Error("Authentication required. Please login."),
+      );
     }
 
-    return Promise.reject(new Error(serverMessage));
+    if (token && isTokenExpired()) {
+      try {
+        const userDataStr = sessionStorage.getItem("userData");
+        if (userDataStr) {
+          const userData = JSON.parse(userDataStr);
+
+          console.log("Token expired. Requesting new access token...");
+          const data = await refreshToken(userData.refreshToken);
+
+          token = data.accessToken;
+
+          const mergedUser = { ...userData, ...data };
+          sessionStorage.setItem("accessToken", data.accessToken);
+          sessionStorage.setItem("userData", JSON.stringify(mergedUser));
+          sessionStorage.setItem("loginTime", Date.now().toString());
+
+          console.log("Token updated successfully. Resuming request.");
+        }
+      } catch (err) {
+        console.error("Token refresh failed.");
+      }
+    }
+
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
   },
 );
 
@@ -26,7 +62,7 @@ export const getTodos = async (limit: number): Promise<Todo[]> => {
   const response: AxiosResponse<ApiResponse> = await axios.get<ApiResponse>(
     `${BASE_URL}?limit=${limit}`,
   );
-  console.log("API Response:", response.data);
+
   return response.data.todos;
 };
 
@@ -68,9 +104,13 @@ export const loginUser = async (
     body: JSON.stringify({
       username: username,
       password: password,
-      expiresInMins: 5,
+      expiresInMins: 2,
     }),
   });
+  if (response.ok) {
+    // Record the exact time of login
+    sessionStorage.setItem("loginTime", Date.now().toString());
+  }
 
   if (!response.ok) {
     const errorData = await response.json();
@@ -97,7 +137,7 @@ export const refreshToken = async (refreshToken: string): Promise<User> => {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       refreshToken: refreshToken,
-      expiresInMins: 5,
+      expiresInMins: 2,
     }),
   });
 
@@ -106,10 +146,3 @@ export const refreshToken = async (refreshToken: string): Promise<User> => {
   }
   return response.json();
 };
-axios.interceptors.request.use((config) => {
-  const token = sessionStorage.getItem("accessToken");
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
-});

@@ -82,8 +82,6 @@ const TodoIndex: React.FC = () => {
         setError(null);
         const data = await getTodos(40);
         setTodos(data);
-
-        console.log("Fetched Todos:", data);
       } catch (err: any) {
         handleError(`Failed to load tasks: ${err.message}`);
       } finally {

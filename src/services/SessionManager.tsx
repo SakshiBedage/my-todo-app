@@ -1,19 +1,13 @@
 import React, { useEffect, useState } from "react";
-import { refreshToken as refreshApi } from "../services/api";
+
 import type { User } from "../types/user";
 
 interface SessionManagerProps {
   user: User;
   onLogout: () => void;
-  onSessionRefresh: (newUser: User) => void;
 }
 
-const SessionManager: React.FC<SessionManagerProps> = ({
-  user,
-  onLogout,
-  onSessionRefresh,
-}) => {
-  const [showTokenWarning, setShowTokenWarning] = useState(false);
+const SessionManager: React.FC<SessionManagerProps> = ({ onLogout }) => {
   const [showIdleWarning, setShowIdleWarning] = useState(false);
   const [timeLeft, setTimeLeft] = useState(30);
 
@@ -22,7 +16,16 @@ const SessionManager: React.FC<SessionManagerProps> = ({
     let idleTimer: ReturnType<typeof setTimeout>;
 
     const resetIdleTimer = () => {
+      // const now = new Date();
+      // const hours = now.getHours();
+      // const minutes = now.getMinutes();
+      // const seconds = now.getSeconds();
+      // console.log(
+      //   "Resetting event at this time again: ",
+      //   `${hours}:${minutes}:${seconds}`,
+      // );
       clearTimeout(idleTimer);
+
       setShowIdleWarning(false);
 
       idleTimer = setTimeout(
@@ -44,45 +47,19 @@ const SessionManager: React.FC<SessionManagerProps> = ({
     };
   }, []);
 
-  // 2. TOKEN EXPIRATION (Shows warning at 29:30)
-  useEffect(() => {
-    const warningTime = (5 * 60 - 30) * 1000;
-    const logoutTime = 5 * 60 * 1000;
-
-    const warnTimer = setTimeout(() => setShowTokenWarning(true), warningTime);
-    const autoLogoutTimer = setTimeout(onLogout, logoutTime);
-
-    return () => {
-      clearTimeout(warnTimer);
-      clearTimeout(autoLogoutTimer);
-    };
-  }, [user.accessToken, onLogout]);
-
   // 3. 30-SECOND COUNTDOWN LOGIC
   useEffect(() => {
     let interval: ReturnType<typeof setInterval>;
-    if ((showTokenWarning || showIdleWarning) && timeLeft > 0) {
+    if (showIdleWarning && timeLeft > 0) {
       interval = setInterval(() => setTimeLeft((prev) => prev - 1), 1000);
     } else if (timeLeft === 0) {
       onLogout();
     }
     return () => clearInterval(interval);
-  }, [showTokenWarning, showIdleWarning, timeLeft, onLogout]);
-
-  const handleRefresh = async () => {
-    try {
-      const data = await refreshApi(user.refreshToken);
-      onSessionRefresh(data);
-      setShowTokenWarning(false);
-      setShowIdleWarning(false);
-      setTimeLeft(30);
-    } catch (err) {
-      onLogout();
-    }
-  };
+  }, [showIdleWarning, timeLeft, onLogout]);
 
   // If no warnings are active, don't render anything
-  if (!showTokenWarning && !showIdleWarning) return null;
+  if (!showIdleWarning) return null;
 
   return (
     <div className="fixed inset-0 bg-gray-900/80 backdrop-blur-md z-[9999] flex items-center justify-center p-4 animate-in fade-in duration-300">
@@ -105,13 +82,11 @@ const SessionManager: React.FC<SessionManagerProps> = ({
         </div>
 
         <h2 className="text-2xl font-black text-gray-800 mb-2 uppercase tracking-tight">
-          {showIdleWarning ? "Are you there?" : "Session Expiring"}
+          "Are you there?"
         </h2>
 
         <p className="text-gray-600 mb-6">
-          {showIdleWarning
-            ? "We noticed you've been inactive."
-            : "Your security token is about to expire."}
+          "We noticed you've been inactive."
           <br />
           Logging out in{" "}
           <span className="text-red-600 font-bold text-xl">{timeLeft}s</span>
@@ -119,7 +94,7 @@ const SessionManager: React.FC<SessionManagerProps> = ({
 
         <div className="flex flex-col gap-3">
           <button
-            onClick={handleRefresh}
+            onClick={() => setShowIdleWarning(false)}
             className="w-full bg-red-600 text-white py-3 rounded-lg font-bold hover:bg-red-700 transition-all shadow-lg active:scale-95"
           >
             STAY LOGGED IN
